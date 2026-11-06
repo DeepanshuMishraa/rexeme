@@ -6,14 +6,33 @@ Colors come from Rex itself: the built-in catalog inside the app bundle (termina
 
 ## Install
 
-### Requirements
+```sh
+curl -fsSL https://rexeme.dipxsy.app/install.sh | sh
+```
 
-- macOS with [Rex for Mac](https://www.superlogical.com/rex), and its server running
-- [Bun](https://bun.sh) 1.3 or newer
-- The `rex` CLI on your `PATH` (`rex whoami` should answer)
-- In Rex, pick a theme once in Settings > Themes, so there's a saved choice to follow
+The script:
 
-### Steps
+1. Downloads the macOS build for your Mac (Apple Silicon or Intel) and checks its SHA-256.
+2. Installs it to `~/.local/bin/rexeme`.
+3. Applies Rex's current theme to every app it finds.
+4. Adds the Rexeme actions to Rex's command palette.
+5. Starts the background watcher.
+
+You don't need Bun. Run the same command again to update.
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `REXEME_VERSION` | `latest` | Install a specific release, such as `v0.1.0` |
+| `REXEME_INSTALL_DIR` | `~/.local/bin` | Where the binary goes |
+| `REXEME_SETUP` | `1` | `0` installs only the binary: no sync, plugin or watcher |
+
+For example: `curl -fsSL https://rexeme.dipxsy.app/install.sh | REXEME_SETUP=0 sh`.
+
+rexeme runs on macOS only. It reads Rex for Mac's theme from macOS preferences and runs as a launchd agent, so the script stops on other systems without installing anything. It needs Rex for Mac with its server running, and the `rex` CLI on your `PATH`. Pick a theme once in Rex > Settings > Themes, so there's a saved choice to follow.
+
+### From source
+
+Requires [Bun](https://bun.sh) 1.3 or newer.
 
 1. Clone the repo and install its dependencies:
 
@@ -94,7 +113,8 @@ rexeme install          # restarts the watcher on the new code
 ```sh
 rexeme uninstall          # stop the background watcher
 rexeme plugin uninstall   # remove the Rex actions and the init.lua block
-bun unlink                # take rexeme off your PATH (run inside the checkout)
+rm ~/.local/bin/rexeme    # if you installed with curl
+bun unlink                # if you installed from source (run inside the checkout)
 ```
 
 Apps keep their current Rex colors. Each app's generated `rex` theme file stays where it is, so switch each app back to another theme if you want.
@@ -222,3 +242,11 @@ Commands that apps need run (tmux, herdr, bat, Spicetify) go last, after every f
 ```sh
 bun run check   # typecheck + tests
 ```
+
+### Release
+
+```sh
+scripts/release.sh
+```
+
+The script reads the version from `package.json`, runs the checks, and compiles standalone binaries for `darwin-arm64` and `darwin-x64` with `bun build --compile`. Then it gzips them, writes `SHA256SUMS`, and uploads everything to the `rexeme` R2 bucket with Wrangler, under `vX.Y.Z/` (cached forever) and `latest/` (cached for 5 minutes). `scripts/install.sh` goes at the bucket root. Bump `version` in `package.json` and `VERSION` in `src/main.ts` together before releasing.
