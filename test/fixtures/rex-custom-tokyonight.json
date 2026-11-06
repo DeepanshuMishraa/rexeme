@@ -1,0 +1,172 @@
+{
+  "palette": {
+    "paletteHarmonious": false,
+    "ansi": [
+      {
+        "alpha": 1,
+        "colorSpace": "srgb",
+        "red": 0.08235294117647059,
+        "green": 0.08627450980392157,
+        "blue": 0.11764705882352941
+      },
+      {
+        "alpha": 1,
+        "colorSpace": "srgb",
+        "red": 0.9686274509803922,
+        "green": 0.4627450980392157,
+        "blue": 0.5568627450980392
+      },
+      {
+        "alpha": 1,
+        "colorSpace": "srgb",
+        "red": 0.6196078431372549,
+        "green": 0.807843137254902,
+        "blue": 0.41568627450980394
+      },
+      {
+        "alpha": 1,
+        "colorSpace": "srgb",
+        "red": 0.8784313725490196,
+        "green": 0.6862745098039216,
+        "blue": 0.40784313725490196
+      },
+      {
+        "alpha": 1,
+        "colorSpace": "srgb",
+        "red": 0.47843137254901963,
+        "green": 0.6352941176470588,
+        "blue": 0.9686274509803922
+      },
+      {
+        "alpha": 1,
+        "colorSpace": "srgb",
+        "red": 0.7333333333333333,
+        "green": 0.6039215686274509,
+        "blue": 0.9686274509803922
+      },
+      {
+        "alpha": 1,
+        "colorSpace": "srgb",
+        "red": 0.49019607843137253,
+        "green": 0.8117647058823529,
+        "blue": 1
+      },
+      {
+        "alpha": 1,
+        "colorSpace": "srgb",
+        "red": 0.6627450980392157,
+        "green": 0.6941176470588235,
+        "blue": 0.8392156862745098
+      },
+      {
+        "alpha": 1,
+        "colorSpace": "srgb",
+        "red": 0.2549019607843137,
+        "green": 0.2823529411764706,
+        "blue": 0.40784313725490196
+      },
+      {
+        "alpha": 1,
+        "colorSpace": "srgb",
+        "red": 1,
+        "green": 0.5372549019607843,
+        "blue": 0.615686274509804
+      },
+      {
+        "alpha": 1,
+        "colorSpace": "srgb",
+        "red": 0.6235294117647059,
+        "green": 0.8784313725490196,
+        "blue": 0.26666666666666666
+      },
+      {
+        "alpha": 1,
+        "colorSpace": "srgb",
+        "red": 0.9803921568627451,
+        "green": 0.7294117647058823,
+        "blue": 0.2901960784313726
+      },
+      {
+        "alpha": 1,
+        "colorSpace": "srgb",
+        "red": 0.5529411764705883,
+        "green": 0.6901960784313725,
+        "blue": 1
+      },
+      {
+        "alpha": 1,
+        "colorSpace": "srgb",
+        "red": 0.7803921568627451,
+        "green": 0.6627450980392157,
+        "blue": 1
+      },
+      {
+        "alpha": 1,
+        "colorSpace": "srgb",
+        "red": 0.6431372549019608,
+        "green": 0.8549019607843137,
+        "blue": 1
+      },
+      {
+        "alpha": 1,
+        "colorSpace": "srgb",
+        "red": 0.7529411764705882,
+        "green": 0.792156862745098,
+        "blue": 0.9607843137254902
+      }
+    ],
+    "paletteGenerate": false,
+    "paletteOverrides": {},
+    "background": {
+      "alpha": 1,
+      "colorSpace": "srgb",
+      "red": 0.10196078431372549,
+      "green": 0.10588235294117647,
+      "blue": 0.14901960784313725
+    },
+    "foreground": {
+      "alpha": 1,
+      "colorSpace": "srgb",
+      "red": 0.7529411764705882,
+      "green": 0.792156862745098,
+      "blue": 0.9607843137254902
+    },
+    "cursor": {
+      "alpha": 1,
+      "colorSpace": "srgb",
+      "red": 0.7529411764705882,
+      "green": 0.792156862745098,
+      "blue": 0.9607843137254902
+    },
+    "selectionForeground": {
+      "alpha": 1,
+      "colorSpace": "srgb",
+      "red": 0.7529411764705882,
+      "green": 0.792156862745098,
+      "blue": 0.9607843137254902
+    },
+    "selectionBackground": {
+      "alpha": 1,
+      "colorSpace": "srgb",
+      "red": 0.1568627450980392,
+      "green": 0.20392156862745098,
+      "blue": 0.3411764705882353
+    },
+    "cursorText": {
+      "alpha": 1,
+      "colorSpace": "srgb",
+      "red": 0.10196078431372549,
+      "green": 0.10588235294117647,
+      "blue": 0.14901960784313725
+    }
+  },
+  "name": "tokyonight_night",
+  "createdAt": 815657186.879996,
+  "appearance": "dark",
+  "id": "custom-B184CFEA-B8ED-46B9-AEF7-7BF608C4EAB7",
+  "source": {
+    "ghosttyFile": {
+      "fileName": "tokyonight_night"
+    }
+  }
+}
