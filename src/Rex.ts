@@ -157,10 +157,9 @@ export const layer = Layer.effect(
     const catalog = yield* Effect.cached(loadCatalog())
 
     const selection = Effect.fn("Rex.selection")(function* () {
-      const [darkThemeId, lightThemeId, mode] = yield* Effect.all(
-        [readDefault("Workspace.darkThemeID"), readDefault("Workspace.lightThemeID"), readDefault("Workspace.appearance")],
-        { concurrency: "unbounded" },
-      )
+      const darkThemeId = yield* readDefault("Workspace.darkThemeID")
+      const lightThemeId = yield* readDefault("Workspace.lightThemeID")
+      const mode = yield* readDefault("Workspace.appearance")
       if (darkThemeId === "" || lightThemeId === "") return yield* new SelectionMissing()
       return { mode: parseAppearanceMode(mode), darkThemeId, lightThemeId }
     })
@@ -203,7 +202,7 @@ export const layer = Layer.effect(
       return [...builtIn, ...custom]
     })
 
-    const customFingerprint = () => Effect.map(prefs.value(DEFAULTS_DOMAIN, CUSTOM_THEMES_KEY), Prefs.fingerprint)
+    const customFingerprint = () => prefs.fingerprint(DEFAULTS_DOMAIN, CUSTOM_THEMES_KEY)
 
     const theme = Effect.fn("Rex.theme")(function* (id: string) {
       const { path, entries } = yield* catalog

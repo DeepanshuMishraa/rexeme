@@ -1,13 +1,35 @@
-import { Effect, Ref, Result, Schedule, Stream } from "effect"
-import { rmSync } from "node:fs"
+import { Effect, Queue, Ref, Result, Schedule, Stream } from "effect"
+import { rmSync, watch } from "node:fs"
 import { join } from "node:path"
 import { Palette } from "./Palette.ts"
 import { Paths } from "./Paths.ts"
-import { Processes } from "./Processes.ts"
 import { Rex } from "./Rex.ts"
 import { Stage } from "./Stage.ts"
 import { Sync } from "./Sync.ts"
 import type { Target } from "./Target.ts"
+
+const WATCHED_PLISTS = new Set([`${Rex.DEFAULTS_DOMAIN}.plist`, ".GlobalPreferences.plist"])
+
+const prefsEvents = (prefsDir: string) =>
+  Stream.callback<void>((queue) =>
+    Effect.acquireRelease(
+      Effect.sync(() => {
+        try {
+          return watch(prefsDir, (_, filename) => {
+            if (filename === null || WATCHED_PLISTS.has(filename)) {
+              Queue.offerUnsafe(queue, undefined)
+            }
+          })
+        } catch {
+          return undefined
+        }
+      }),
+      (watcher) => Effect.sync(() => watcher?.close()),
+    ),
+  )
+
+const sameTargets = (a: ReadonlyArray<Target.Target>, b: ReadonlyArray<Target.Target>) =>
+  a.length === b.length && a.every((target, i) => target === b[i])
 
 const ms = (value: number) => `${value.toFixed(2)}ms`
 
@@ -54,14 +76,12 @@ export const switchTo = Effect.fn("Watch.switchTo")(function* (
  * Syncs now, then again every time Rex's theme, light/dark mode or a custom
  * theme's colors change. Runs until interrupted.
  *
- * Rex saves its choice through macOS preferences, and cfprefsd writes the
- * plist to disk lazily, so watching the file misses changes. One poll reads
- * four preferences in-process through CoreFoundation in about 10µs, so
- * polling every 2ms costs under 1% of a core and notices a change within
- * ~1ms on average. The files for both of Rex's selected themes are staged
- * ahead of time (see Stage), so a switch is a few renames.
+ * Watches ~/Library/Preferences for immediate plist writes and falls back to
+ * low-frequency in-process CoreFoundation polling (since cfprefsd flushes
+ * plists lazily). Files for both of Rex's selected themes are staged ahead of
+ * time (see Stage), so a switch is a few renames.
  */
-export const run = Effect.fn("Watch.run")(function* (interval: `${number} millis` = "2 millis") {
+export const run = Effect.fn("Watch.run")(function* (interval: `${number} millis` = "500 millis") {
   const rex = yield* Rex.Service
   const paths = yield* Paths.Service
   const root = join(paths.home, "Library", "Caches", "rexeme", "staged")
@@ -72,14 +92,13 @@ export const run = Effect.fn("Watch.run")(function* (interval: `${number} millis
   const stages = yield* Ref.make<ReadonlyArray<Stage.Staged>>([])
 
   // Stages Rex's dark and light themes: the next switch is to one of them.
-  // Re-staged after every switch and every few seconds, so a stage reflects
-  // the configs as they are now and a switch rarely falls back to a live sync.
+  // Re-staged after every switch and only if a periodic staleness check sees
+  // that installed apps or a staged config file actually changed.
   const restage = Effect.gen(function* () {
     const selection = yield* rex.selection()
     const targets = yield* Ref.get(installed)
     const ids = [...new Set([selection.darkThemeId, selection.lightThemeId])]
     const fingerprint = yield* rex.customFingerprint()
-    yield* Processes.refresh
     const fresh = yield* Effect.forEach(ids, (id) =>
       Effect.flatMap(rex.theme(id), (theme) => Stage.prepare(triggerFor(id, fingerprint), Palette.fromTheme(theme), targets, root)),
     )
@@ -88,9 +107,15 @@ export const run = Effect.fn("Watch.run")(function* (interval: `${number} millis
   }).pipe(Effect.catch((error) => Effect.logWarning(`Couldn't stage the next theme switch: ${error.message}`)))
 
   yield* Effect.gen(function* () {
-    yield* Ref.set(installed, yield* Sync.detect())
-    yield* restage
-  }).pipe(Effect.repeat(Schedule.spaced("5 seconds")), Effect.delay("5 seconds"), Effect.forkChild)
+    const prev = yield* Ref.get(installed)
+    const next = yield* Sync.detect()
+    const changed = !sameTargets(prev, next)
+    if (changed) yield* Ref.set(installed, next)
+    const current = yield* Ref.get(stages)
+    if (changed || current.length === 0 || current.some((stage) => !Stage.isFresh(stage))) {
+      yield* restage
+    }
+  }).pipe(Effect.repeat(Schedule.spaced("5 minutes")), Effect.delay("5 minutes"), Effect.forkChild)
 
   const which = Effect.gen(function* () {
     const selection = yield* rex.selection()
@@ -116,8 +141,8 @@ export const run = Effect.fn("Watch.run")(function* (interval: `${number} millis
         }).pipe(Effect.catch((error) => Effect.logWarning(error.message))),
     })
 
-  yield* Effect.logInfo(`Watching Rex for theme changes every ${interval}`)
-  yield* Stream.tick(interval).pipe(
+  yield* Effect.logInfo(`Watching Rex for theme changes (poll ${interval} + prefs fs.watch)`)
+  yield* Stream.merge(Stream.tick(interval), prefsEvents(join(paths.home, "Library", "Preferences"))).pipe(
     Stream.mapEffect(() => which),
     Stream.changesWith((a, b) => key(a) === key(b)),
     Stream.runForEach(handle),

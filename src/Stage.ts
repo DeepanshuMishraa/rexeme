@@ -120,6 +120,9 @@ const matchesBase = (write: Files.Write) => {
 
 const unchanged = (write: StagedWrite) => signature(write.path) === write.signature
 
+/** True when every staged plan's config files still match their staged signatures (pure stat). */
+export const isFresh = (staged: Staged) => staged.plans.every((plan) => plan.writes.every(unchanged))
+
 /**
  * Moves a staged file into place, falling back to a copy across volumes.
  * Returns false when neither works (say, its folder was deleted since
