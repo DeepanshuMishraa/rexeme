@@ -23,13 +23,6 @@ export type Value =
   | { readonly _tag: "Data"; readonly bytes: Uint8Array }
   | { readonly _tag: "PropertyList"; readonly xml: Uint8Array }
 
-/** Changes whenever the value's bytes do; cheap enough to compare every poll. */
-export const fingerprint = (value: Option.Option<Value>) =>
-  Option.match(value, {
-    onNone: () => "none",
-    onSome: (v) => `${v._tag}:${Bun.hash(v._tag === "Data" ? v.bytes : v.xml).toString(16)}`,
-  })
-
 export class Service extends Context.Service<Service, Interface>()("rexeme/Prefs") {}
 
 /** CFPreferences' name for the global domain (`defaults read -g`). */

@@ -15,11 +15,13 @@ const prefsEvents = (prefsDir: string) =>
     Effect.acquireRelease(
       Effect.sync(() => {
         try {
-          return watch(prefsDir, (_, filename) => {
+          const watcher = watch(prefsDir, (_, filename) => {
             if (filename === null || WATCHED_PLISTS.has(filename)) {
               Queue.offerUnsafe(queue, undefined)
             }
           })
+          watcher.on("error", () => watcher.close())
+          return watcher
         } catch {
           return undefined
         }
@@ -43,7 +45,6 @@ const triggerFor = (themeId: string, customFingerprint: string) => `${themeId}#$
  */
 export const switchTo = Effect.fn("Watch.switchTo")(function* (
   trigger: string,
-  installed: ReadonlyArray<Target.Target>,
   staged: ReadonlyArray<Stage.Staged>,
   noticedAt: number,
 ) {
@@ -54,6 +55,7 @@ export const switchTo = Effect.fn("Watch.switchTo")(function* (
   const swapped = stage ? yield* Stage.commit(stage) : undefined
   const rex = yield* Rex.Service
   const active = yield* rex.active()
+  const installed = yield* Sync.detect()
   const palette = Palette.fromTheme(active.theme)
   const done = new Set(swapped?.committed.map(({ plan }) => plan.target) ?? [])
   const live = installed.filter((target) => !done.has(target))
@@ -70,6 +72,7 @@ export const switchTo = Effect.fn("Watch.switchTo")(function* (
   for (const outcome of outcomes) {
     if (outcome._tag === "Failed") yield* Effect.logWarning(Sync.describe(outcome))
   }
+  return installed
 })
 
 /**
@@ -136,7 +139,8 @@ export const run = Effect.fn("Watch.run")(function* (interval: `${number} millis
       onSuccess: (trigger) =>
         Effect.gen(function* () {
           const noticedAt = performance.now()
-          yield* switchTo(trigger, yield* Ref.get(installed), yield* Ref.get(stages), noticedAt)
+          const current = yield* switchTo(trigger, yield* Ref.get(stages), noticedAt)
+          yield* Ref.set(installed, current)
           yield* restage
         }).pipe(Effect.catch((error) => Effect.logWarning(error.message))),
     })
