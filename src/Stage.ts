@@ -26,7 +26,7 @@ import type { Target } from "./Target.ts"
 export interface StagedWrite {
   readonly path: string
   readonly staged: string
-  /** The config's size, mtime and inode when staged; a commit needs the same, which a stat checks in microseconds. */
+  /** The config's size, mtime, inode and mode when staged; a commit needs the same, which a stat checks in microseconds. */
   readonly signature: string
 }
 
@@ -34,7 +34,7 @@ export interface StagedWrite {
 export const signature = (path: string) => {
   try {
     const stat = fs.statSync(path, { bigint: true })
-    return `${stat.ino}:${stat.size}:${stat.mtimeNs}`
+    return `${stat.ino}:${stat.size}:${stat.mtimeNs}:${stat.mode}`
   } catch {
     return "missing"
   }
@@ -119,6 +119,10 @@ const matchesBase = (write: Files.Write) => {
 }
 
 const unchanged = (write: StagedWrite) => signature(write.path) === write.signature
+
+/** True when every staged plan's config files still match their staged signatures and staged files exist (pure stat). */
+export const isFresh = (staged: Staged) =>
+  staged.plans.every((plan) => plan.writes.every((write) => unchanged(write) && fs.existsSync(write.staged)))
 
 /**
  * Moves a staged file into place, falling back to a copy across volumes.

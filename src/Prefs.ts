@@ -11,6 +11,10 @@ export interface Interface {
   readonly string: (domain: string, key: string) => Effect.Effect<Option.Option<string>>
   /** Any preference, serialized; None when it's missing. */
   readonly value: (domain: string, key: string) => Effect.Effect<Option.Option<Value>>
+  /** Hash of a preference's raw bytes without copying them; "none" when missing. */
+  readonly fingerprint: (domain: string, key: string) => Effect.Effect<string>
+  /** Drops this process's cached copy of a domain so the next reads come fresh from cfprefsd. */
+  readonly synchronize: (domain: string) => Effect.Effect<void>
 }
 
 /**
@@ -20,13 +24,6 @@ export interface Interface {
 export type Value =
   | { readonly _tag: "Data"; readonly bytes: Uint8Array }
   | { readonly _tag: "PropertyList"; readonly xml: Uint8Array }
-
-/** Changes whenever the value's bytes do; cheap enough to compare every poll. */
-export const fingerprint = (value: Option.Option<Value>) =>
-  Option.match(value, {
-    onNone: () => "none",
-    onSome: (v) => `${v._tag}:${Bun.hash(v._tag === "Data" ? v.bytes : v.xml).toString(16)}`,
-  })
 
 export class Service extends Context.Service<Service, Interface>()("rexeme/Prefs") {}
 
@@ -72,11 +69,19 @@ export const layer = Layer.effect(Service, Effect.gen(function* () {
     return Option.some(new Uint8Array(toArrayBuffer(start, 0, length)).slice())
   }
 
+  // Hashes a CFData's bytes in place before it's released (no copy).
+  const hashData = (data: number | bigint, tag: Value["_tag"]): string => {
+    const length = Number(cf.CFDataGetLength(data))
+    if (length === 0) return `${tag}:${Bun.hash(new Uint8Array()).toString(16)}`
+    const start = cf.CFDataGetBytePtr(data)
+    if (start === null) return "none"
+    return `${tag}:${Bun.hash(new Uint8Array(toArrayBuffer(start, 0, length))).toString(16)}`
+  }
+
   const readValue = (domain: string, key: string): Option.Option<Value> => {
     const domainRef = cfString(domain)
     const keyRef = cfString(key)
     if (Option.isNone(domainRef) || Option.isNone(keyRef)) return Option.none()
-    cf.CFPreferencesAppSynchronize(domainRef.value)
     const value = cf.CFPreferencesCopyAppValue(keyRef.value, domainRef.value)
     if (BigInt(value) === 0n) return Option.none()
     try {
@@ -87,6 +92,28 @@ export const layer = Layer.effect(Service, Effect.gen(function* () {
       if (BigInt(xml) === 0n) return Option.none()
       try {
         return Option.map(bytesOf(xml), (bytes) => ({ _tag: "PropertyList" as const, xml: bytes }))
+      } finally {
+        cf.CFRelease(xml)
+      }
+    } finally {
+      cf.CFRelease(value)
+    }
+  }
+
+  const readFingerprint = (domain: string, key: string): string => {
+    const domainRef = cfString(domain)
+    const keyRef = cfString(key)
+    if (Option.isNone(domainRef) || Option.isNone(keyRef)) return "none"
+    const value = cf.CFPreferencesCopyAppValue(keyRef.value, domainRef.value)
+    if (BigInt(value) === 0n) return "none"
+    try {
+      if (BigInt(cf.CFGetTypeID(value)) === dataType) {
+        return hashData(value, "Data")
+      }
+      const xml = cf.CFPropertyListCreateData(null, value, XML_FORMAT, 0, null)
+      if (BigInt(xml) === 0n) return "none"
+      try {
+        return hashData(xml, "PropertyList")
       } finally {
         cf.CFRelease(xml)
       }
@@ -115,8 +142,6 @@ export const layer = Layer.effect(Service, Effect.gen(function* () {
     const domainRef = cfString(domain)
     const keyRef = cfString(key)
     if (Option.isNone(domainRef) || Option.isNone(keyRef)) return Option.none()
-    // Drops the cached copy so the value comes fresh from cfprefsd.
-    cf.CFPreferencesAppSynchronize(domainRef.value)
     const value = cf.CFPreferencesCopyAppValue(keyRef.value, domainRef.value)
     if (BigInt(value) === 0n) return Option.none()
     try {
@@ -131,6 +156,11 @@ export const layer = Layer.effect(Service, Effect.gen(function* () {
   return Service.of({
     string: (domain, key) => Effect.sync(() => read(domain, key)),
     value: (domain, key) => Effect.sync(() => readValue(domain, key)),
+    fingerprint: (domain, key) => Effect.sync(() => readFingerprint(domain, key)),
+    synchronize: (domain) =>
+      Effect.sync(() => {
+        Option.map(cfString(domain), (ref) => cf.CFPreferencesAppSynchronize(ref))
+      }),
   })
 }))
 

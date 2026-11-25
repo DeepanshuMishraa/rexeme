@@ -96,6 +96,8 @@ export interface Interface {
   readonly systemAppearance: () => Effect.Effect<RexTheme.Appearance>
   /** Every built-in theme, then every usable custom theme, for listing. */
   readonly themes: () => Effect.Effect<ReadonlyArray<Listed>, AppNotFound | CatalogUnreadable | CustomThemesUnreadable>
+  /** Drops cached preferences so the next reads see Rex's and macOS's latest values. Call once per poll. */
+  readonly refresh: () => Effect.Effect<void>
   /** Changes whenever the user adds, edits or removes a custom theme. */
   readonly customFingerprint: () => Effect.Effect<string>
   /** A built-in theme with its palette. */
@@ -157,10 +159,9 @@ export const layer = Layer.effect(
     const catalog = yield* Effect.cached(loadCatalog())
 
     const selection = Effect.fn("Rex.selection")(function* () {
-      const [darkThemeId, lightThemeId, mode] = yield* Effect.all(
-        [readDefault("Workspace.darkThemeID"), readDefault("Workspace.lightThemeID"), readDefault("Workspace.appearance")],
-        { concurrency: "unbounded" },
-      )
+      const darkThemeId = yield* readDefault("Workspace.darkThemeID")
+      const lightThemeId = yield* readDefault("Workspace.lightThemeID")
+      const mode = yield* readDefault("Workspace.appearance")
       if (darkThemeId === "" || lightThemeId === "") return yield* new SelectionMissing()
       return { mode: parseAppearanceMode(mode), darkThemeId, lightThemeId }
     })
@@ -203,7 +204,9 @@ export const layer = Layer.effect(
       return [...builtIn, ...custom]
     })
 
-    const customFingerprint = () => Effect.map(prefs.value(DEFAULTS_DOMAIN, CUSTOM_THEMES_KEY), Prefs.fingerprint)
+    const refresh = () => Effect.andThen(prefs.synchronize(DEFAULTS_DOMAIN), prefs.synchronize(Prefs.GLOBAL))
+
+    const customFingerprint = () => prefs.fingerprint(DEFAULTS_DOMAIN, CUSTOM_THEMES_KEY)
 
     const theme = Effect.fn("Rex.theme")(function* (id: string) {
       const { path, entries } = yield* catalog
@@ -222,7 +225,7 @@ export const layer = Layer.effect(
       return { selection: current, appearance, theme: yield* theme(themeIdFor(current, appearance)) }
     })
 
-    return Service.of({ selection, systemAppearance, themes, customFingerprint, theme, active })
+    return Service.of({ selection, systemAppearance, themes, refresh, customFingerprint, theme, active })
   }),
 )
 
