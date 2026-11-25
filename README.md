@@ -100,6 +100,14 @@ Most apps need nothing more. A few can't be switched from outside, and `rexeme s
 
 ### Update
 
+If you installed with curl:
+
+```sh
+rexeme upgrade   # downloads the latest release, verifies it and restarts the watcher
+```
+
+From source:
+
 ```sh
 cd ~/Code/rexeme
 git pull
@@ -158,6 +166,7 @@ rexeme sync [--only zed,neovim]   # apply Rex's current theme once
 rexeme status                     # Rex's choice and which apps were found
 rexeme themes                     # built-in and custom themes (* is the one showing)
 rexeme install | uninstall        # background watcher (launchd)
+rexeme upgrade                    # replace the binary with the latest release
 rexeme plugin install | uninstall # Rex palette actions
 ```
 

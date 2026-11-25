@@ -84,6 +84,16 @@ export const install = Effect.fn("LaunchAgent.install")(function* (
   return { plist, log }
 })
 
+/** Restarts the login agent so it runs the current binary; false when it isn't installed. */
+export const restart = Effect.fn("LaunchAgent.restart")(function* () {
+  const fs = yield* FileSystem.FileSystem
+  const { plist, domain } = yield* locations
+  if (!(yield* fs.exists(plist))) return false
+  const exitCode = yield* Shell.exitCode("/bin/launchctl", ["kickstart", "-k", `${domain}/${LABEL}`])
+  if (exitCode !== 0) return yield* new LaunchctlFailed({ plist, exitCode })
+  return true
+})
+
 /** Stops the login agent and removes its plist. Generated tool themes stay as they are. */
 export const uninstall = Effect.fn("LaunchAgent.uninstall")(function* () {
   const fs = yield* FileSystem.FileSystem

@@ -19,6 +19,8 @@ for arch in arm64 x64; do
   gzip -9 -f "$out/rexeme-darwin-$arch"
 done
 (cd "$out" && shasum -a 256 rexeme-darwin-*.gz > SHA256SUMS)
+# `rexeme upgrade` reads latest/VERSION to decide whether there's anything newer.
+echo "$version" > "$out/VERSION"
 
 put() { # key file content-type cache-control
   wrangler r2 object put "$BUCKET/$1" --file "$2" --content-type "$3" --cache-control "$4" --remote
@@ -32,5 +34,7 @@ for prefix in "$version" latest; do
   done
   put "$prefix/SHA256SUMS" "$out/SHA256SUMS" text/plain "$cache"
 done
+# Last, so upgrade never sees a version whose files aren't all uploaded yet.
+put latest/VERSION "$out/VERSION" text/plain "public, max-age=300"
 put install.sh scripts/install.sh text/x-shellscript "public, max-age=300"
 echo "Published $version. Install with: curl -fsSL https://rexeme.dipxsy.app/install.sh | sh"

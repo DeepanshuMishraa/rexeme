@@ -9,9 +9,10 @@ import { Prefs } from "./Prefs.ts"
 import { RexPlugin } from "./RexPlugin.ts"
 import { Rex } from "./Rex.ts"
 import { Sync } from "./Sync.ts"
+import { Upgrade } from "./Upgrade.ts"
 import { Watch } from "./Watch.ts"
 
-const VERSION = "0.1.0"
+const VERSION = "0.2.0"
 
 /** Prints an expected failure as plain text and exits 1, instead of a stack trace. */
 const reportFailure = <A, E extends { readonly message: string }, R>(effect: Effect.Effect<A, E, R>) =>
@@ -186,14 +187,32 @@ const pluginUninstall = Command.make(
   }),
 ).pipe(Command.withDescription("Remove rexeme's actions from Rex"))
 
+const upgrade = Command.make(
+  "upgrade",
+  {},
+  Effect.fn("cli.upgrade")(function* () {
+    yield* reportFailure(
+      Effect.gen(function* () {
+        const result = yield* Upgrade.run(VERSION)
+        if (result._tag === "UpToDate") return yield* Console.log(`rexeme ${result.version} is the latest version.`)
+        yield* Console.log(result.output)
+        const restarted = yield* LaunchAgent.restart()
+        yield* Console.log(
+          `Upgraded rexeme v${VERSION} -> ${result.version}.${restarted ? " Restarted the background watcher." : ""}`,
+        )
+      }),
+    )
+  }),
+).pipe(Command.withDescription("Replace this rexeme binary with the latest release and restart the watcher"))
+
 const plugin = Command.make("plugin").pipe(
   Command.withDescription("Manage the rexeme Rex plugin"),
   Command.withSubcommands([pluginInstall, pluginUninstall]),
 )
 
-const rexeme =Command.make("rexeme").pipe(
+const rexeme = Command.make("rexeme").pipe(
   Command.withDescription("A Rex plugin that keeps your editors, terminals and CLI tools on Rex's theme"),
-  Command.withSubcommands([sync, watch, status, themes, install, uninstall, plugin]),
+  Command.withSubcommands([sync, watch, status, themes, install, uninstall, upgrade, plugin]),
 )
 
 const MainLayer = Rex.layer.pipe(
