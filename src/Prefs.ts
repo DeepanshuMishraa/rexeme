@@ -13,6 +13,8 @@ export interface Interface {
   readonly value: (domain: string, key: string) => Effect.Effect<Option.Option<Value>>
   /** Hash of a preference's raw bytes without copying them; "none" when missing. */
   readonly fingerprint: (domain: string, key: string) => Effect.Effect<string>
+  /** Drops this process's cached copy of a domain so the next reads come fresh from cfprefsd. */
+  readonly synchronize: (domain: string) => Effect.Effect<void>
 }
 
 /**
@@ -43,6 +45,7 @@ export const layer = Layer.effect(Service, Effect.gen(function* () {
     // CF values travel as u64: short strings are tagged pointers with the top bit
     // set, which a JS number can't hold exactly.
     CFPreferencesCopyAppValue: { args: [FFIType.u64, FFIType.u64], returns: FFIType.u64 },
+    CFPreferencesAppSynchronize: { args: [FFIType.u64], returns: FFIType.bool },
     CFGetTypeID: { args: [FFIType.u64], returns: FFIType.u64 },
     CFStringGetTypeID: { args: [], returns: FFIType.u64 },
     CFStringGetCString: { args: [FFIType.u64, FFIType.ptr, FFIType.i64, FFIType.u32], returns: FFIType.bool },
@@ -154,6 +157,10 @@ export const layer = Layer.effect(Service, Effect.gen(function* () {
     string: (domain, key) => Effect.sync(() => read(domain, key)),
     value: (domain, key) => Effect.sync(() => readValue(domain, key)),
     fingerprint: (domain, key) => Effect.sync(() => readFingerprint(domain, key)),
+    synchronize: (domain) =>
+      Effect.sync(() => {
+        Option.map(cfString(domain), (ref) => cf.CFPreferencesAppSynchronize(ref))
+      }),
   })
 }))
 

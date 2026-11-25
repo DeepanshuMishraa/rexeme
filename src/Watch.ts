@@ -121,6 +121,8 @@ export const run = Effect.fn("Watch.run")(function* (interval: `${number} millis
   }).pipe(Effect.repeat(Schedule.spaced("5 minutes")), Effect.delay("5 minutes"), Effect.forkChild)
 
   const which = Effect.gen(function* () {
+    // One sync per poll, not per read: keeps reads fresh without the per-read cost.
+    yield* rex.refresh()
     const selection = yield* rex.selection()
     const appearance = Rex.resolveAppearance(
       selection.mode,
